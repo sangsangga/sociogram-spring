@@ -1,0 +1,59 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.1.11'
+	id 'io.spring.dependency-management' version '1.1.4'
+	id 'org.flywaydb.flyway' version '9.22.3'
+}
+
+group = 'Test'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	sourceCompatibility = '17'
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	implementation 'org.flywaydb:flyway-core:9.22.3'
+	implementation 'org.flywaydb:flyway-mysql'
+	implementation "org.projectlombok:lombok"
+	annotationProcessor 'org.projectlombok:lombok'
+	implementation 'com.password4j:password4j:1.8.1'
+	implementation 'io.jsonwebtoken:jjwt:0.2'
+	implementation 'javax.xml.bind:jaxb-api:2.2.4'
+}
+
+tasks.named('bootBuildImage') {
+	builder = 'paketobuildpacks/builder-jammy-base:latest'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+task prefixMigration {
+	fileTree(dir: "${project.projectDir}/src/main/resources/db/migration").exclude({ isFilePrefixed(it.file) }).each { file ->
+		doLast {
+			def timestamp = new Date().format('yyyyMMdd_HHmmss_SSS', TimeZone.getTimeZone('GMT'))
+
+			println "Renaming $file.name to V${timestamp}__$file.name"
+
+
+			file.renameTo("$file.parentFile.absolutePath$file.separator${"V"}${timestamp}__$file.name")
+
+			// Sleep for a moment to avoid prefix conflicts when renaming multiple files
+			sleep(1*1000)
+		}
+	}
+}
+
+static def isFilePrefixed(file) {
+	return (file.name ==~ '^V\\d+.*\\.sql\$')
+}
